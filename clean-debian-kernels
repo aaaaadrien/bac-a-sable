@@ -36,39 +36,44 @@ esac
 if [ -n "$kernelPrefixe" ]
 then
 	echo "Distribution linux non supportée. Votre distrib: $KERNELUSED.";
-	exit 1;	# Normalement la sortie 1 est évité car trop générique
+	exit 1;	# Normalement la sortie 1 est à évité car trop générique
 fi
 
 
 #echo "Kernel list : $KERNELLIST"
-for k in $KERNELLIST
+for k in "$KERNELLIST"
 do
-	if [ "$k" != "$kernelPrefixe" -a "$k" != "linux-image-$KERNELUSED" ]
+	if [ "$k" != "$kernelPrefixe" ] && [ "$k" != "linux-image-$KERNELUSED" ]
 	then
 		#KERNELTOREMOVE="$k $KERNELTOREMOVE"
-		KERNELTOREMOVE+=" $k";	# Alternative (mais ajoute le nouveau kernet à la suite et non avant)
+		KERNELTOREMOVE+=" $k";	# Alternative (mais ajoute le nouveau kernel à la suite et non avant)
 	fi
 done
 
 
 #echo "$LINENO: Kernel list to remove : $KERNELTOREMOVE"
 
-KERNELVERSIONSTOREMOVE=$(echo $KERNELTOREMOVE | sed -e 's/linux-image-//g')
+# suppression de toutes les occurances de 'linux-image- '
+#KERNELVERSIONSTOREMOVE=$(echo $KERNELTOREMOVE | sed -e 's/linux-image-//g')
+KERNELVERSIONSTOREMOVE="${KERNELTOREMOVE//linux-image-)";	
+
 #echo "Kernel version to remove : $KERNELVERSIONSTOREMOVE"
 
 DPKGKERNELS=""
-for v in $KERNELVERSIONSTOREMOVE
+for v in "$KERNELVERSIONSTOREMOVE"
 do
-	if [ "$DISTRIBTYPE" = "ubuntu" ]
-	then
-		vNOGENERIC=$(echo $v | sed -e 's/-generic//')
-		DPKGKERNELS="linux-headers-$v linux-image-$v linux-modules-$v linux-modules-extra-$v linux-headers-$vNOGENERIC $DPKGKERNELS"
-	fi
-	if [ "$DISTRIBTYPE" = "debian" ]
-	then
-		vNOARCH=$(echo $v | sed -e 's/-amd64/-common/')
-		DPKGKERNELS="linux-headers-$v linux-image-$v linux-modules-$v linux-modules-extra-$v linux-headers-$vNOARCH $DPKGKERNELS"
-	fi
+	case "$DISTRIBTYPE" in
+		'ubuntu')
+			#vNOGENERIC=$(echo $v | sed -e 's/-generic//')
+			 vNOGENERIC=${v//-generic};	# Suppression de TOUTES les occurences de '-generic'
+			DPKGKERNELS="linux-headers-$v linux-image-$v linux-modules-$v linux-modules-extra-$v linux-headers-$vNOGENERIC $DPKGKERNELS"
+	;;
+		'debian')
+			#vNOARCH=$(echo $v | sed -e 's/-amd64/-common/')
+			 vNOARCH=${v//-common};	# Suppression de TOUTES les occurences de '-common'
+			DPKGKERNELS="linux-headers-$v linux-image-$v linux-modules-$v linux-modules-extra-$v linux-headers-$vNOARCH $DPKGKERNELS"
+	;;
+	esac
 done
 #echo "Commande dpkg : dpkg --remove $DPKGKERNELS"
 
@@ -89,16 +94,19 @@ then
 		do
 			rm -rf /lib/modules/$v
 			rm -rf /usr/src/linux-headers-$v
-			if [ "$DISTRIBTYPE" = "ubuntu" ]
-			then
-				vNOGENERIC=$(echo $v | sed -e 's/-generic//')
-				rm -rf /usr/src/linux-headers-$vNOGENERIC
-			fi
-			if [ "$DISTRIBTYPE" = "debian" ]
-			then
-				vNOARCH=$(echo $v | sed -e 's/-amd64/-common/')
-				rm -rf /usr/src/linux-headers-$vNOARCH
-			fi
+			
+			case "$DISTRIBTYPE" in
+				'ubuntu')
+					#vNOGENERIC=$(echo $v | sed -e 's/-generic//')
+					 vNOGENERIC=${v//-generic};
+					rm -rf /usr/src/linux-headers-$vNOGENERIC
+				;;
+				'debian')
+					#vNOARCH=$(echo $v | sed -e 's/-amd64/-common/')
+					 vNOARCH=${v//-common};
+					rm -rf /usr/src/linux-headers-$vNOARCH
+				;;
+			esac
 		done
 	fi
 else
