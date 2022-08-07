@@ -2,11 +2,14 @@
 # Script developped by Adrien.D from Linuxtricks
 # Tested on Linux Mint 20.3 + Ubuntu 22.04 + Debian SID
 
+set -u;	# Provoque une erreur sur l'utilisation d'une variable non déclaré. (donc oblige la déclaration des variables)
+
 if [ $(id -u) -ne 0 ]
 then
 	echo "Script must be run as root"
 	exit 1
 fi
+
 
 DISTRIBTYPE=$(egrep ^ID= /etc/os-release | awk -F= '{ print $2 ;}')
 
@@ -14,34 +17,41 @@ if [ "$DISTRIBTYPE" = "linuxmint" ]
 then
 	DISTRIBTYPE=$(egrep ^ID_LIKE= /etc/os-release | awk -F= '{ print $2 ;}')
 fi
+
 #echo "Distribution type : $DISTRIBTYPE"
 
 KERNELUSED=$(uname -r)
 KERNELLIST=$(dpkg -l | egrep  ii.*linux-image | awk '{ print $2; }')
 KERNELTOREMOVE=""
 
-#echo "########################"
+#echo "$LINENO:### Creation de la liste des paquets  ###"; # Comme c'est un echo de debug autant précisez la ligne (utile pour les long scripts)
+
+declare kernelPrefixe='';
+
+case "$DISTRIBTYPE" in
+	'ubuntu') kernelPrefixe="linux-image-generic";	;;
+	'debian') kernelPrefixe="linux-image-amd64";	;;
+esac
+
+if [ -n "$kernelPrefixe" ]
+then
+	echo "Distribution linux non supportée. Votre distrib: $KERNELUSED.";
+	exit 1;	# Normalement la sortie 1 est évité car trop générique
+fi
+
 
 #echo "Kernel list : $KERNELLIST"
 for k in $KERNELLIST
 do
-	if [ "$DISTRIBTYPE" = "ubuntu" ]
+	if [ "$k" != "$kernelPrefixe" -a "$k" != "linux-image-$KERNELUSED" ]
 	then
-		if [ "$k" != "linux-image-generic" -a "$k" != "linux-image-$KERNELUSED" ]
-		then
-			KERNELTOREMOVE="$k $KERNELTOREMOVE"
-		fi
+		#KERNELTOREMOVE="$k $KERNELTOREMOVE"
+		KERNELTOREMOVE+=" $k";	# Alternative (mais ajoute le nouveau kernet à la suite et non avant)
 	fi
-	if [ "$DISTRIBTYPE" = "debian" ]
-	then
-		if [ "$k" != "linux-image-amd64" -a "$k" != "linux-image-$KERNELUSED" ]
-		then
-			KERNELTOREMOVE="$k $KERNELTOREMOVE"
-		fi
-	fi
-
 done
-#echo "Kernel list to remove : $KERNELTOREMOVE"
+
+
+#echo "$LINENO: Kernel list to remove : $KERNELTOREMOVE"
 
 KERNELVERSIONSTOREMOVE=$(echo $KERNELTOREMOVE | sed -e 's/linux-image-//g')
 #echo "Kernel version to remove : $KERNELVERSIONSTOREMOVE"
